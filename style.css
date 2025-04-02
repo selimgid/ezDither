@@ -3,6 +3,8 @@ body {
     text-align: center;
     background: #1e1e1e;
     color: white;
+    margin: 0;
+    padding: 0;
 }
 .controls {
     margin: 20px 0;
@@ -10,10 +12,21 @@ body {
 input[type="range"] {
     width: 200px;
 }
+.canvas-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+    max-width: 90vw;
+    max-height: 70vh;
+    overflow: hidden;
+}
 canvas {
     border: 1px solid #444;
-    margin-top: 20px;
-    max-width: 95vw;
+    max-width: 90vw;
+    max-height: 70vh;
+    width: auto;
+    height: auto;
 }
 button {
     margin-top: 20px;
