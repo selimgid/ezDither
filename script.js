@@ -18,6 +18,7 @@ const whiteVal = document.getElementById('whiteVal');
 const noiseVal = document.getElementById('noiseVal');
 const blurVal = document.getElementById('blurVal');
 
+const processBtn = document.getElementById('process');
 const downloadBtn = document.getElementById('download');
 
 let img = new Image();
@@ -31,27 +32,22 @@ upload.addEventListener('change', (e) => {
             const scale = Math.max(3840 / img.width, 2160 / img.height, 1);
             canvas.width = Math.floor(img.width * scale);
             canvas.height = Math.floor(img.height * scale);
-            applyDither();
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         }
         img.src = event.target.result;
     }
     reader.readAsDataURL(file);
 });
 
-[
-    sizeSlider, brightnessSlider, curveSlider,
-    blackSlider, whiteSlider, noiseSlider, blurSlider
-].forEach(slider => {
-    slider.addEventListener('input', () => {
-        sizeVal.textContent = sizeSlider.value;
-        brightVal.textContent = brightnessSlider.value;
-        curveVal.textContent = curveSlider.value;
-        blackVal.textContent = blackSlider.value;
-        whiteVal.textContent = whiteSlider.value;
-        noiseVal.textContent = noiseSlider.value;
-        blurVal.textContent = blurSlider.value;
-        applyDither();
-    });
+processBtn.addEventListener('click', () => {
+    sizeVal.textContent = sizeSlider.value;
+    brightVal.textContent = brightnessSlider.value;
+    curveVal.textContent = curveSlider.value;
+    blackVal.textContent = blackSlider.value;
+    whiteVal.textContent = whiteSlider.value;
+    noiseVal.textContent = noiseSlider.value;
+    blurVal.textContent = blurSlider.value;
+    applyDither();
 });
 
 downloadBtn.addEventListener('click', () => {
@@ -63,7 +59,6 @@ downloadBtn.addEventListener('click', () => {
 
 function applyDither() {
     if (!img.src) return;
-
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     if (blurSlider.value > 0) applyBlur();
 
@@ -75,31 +70,40 @@ function applyDither() {
     const blackPoint = parseInt(blackSlider.value);
     const whitePoint = parseInt(whiteSlider.value);
     const noiseLevel = parseFloat(noiseSlider.value);
-    const step = parseInt(sizeSlider.value);
+    const blockSize = parseInt(sizeSlider.value);
 
-    for (let y = 0; y < canvas.height; y += step) {
-        for (let x = 0; x < canvas.width; x += step) {
-            let i = (y * canvas.width + x) * 4;
-            let gray = (data[i] + data[i+1] + data[i+2]) / 3;
-            gray = Math.max(0, Math.min(255, gray + brightness));
-            gray = 255 * Math.pow(gray / 255, 1 / curve);
-            gray = Math.max(blackPoint, Math.min(whitePoint, gray));
+    for (let y = 0; y < canvas.height; y += blockSize) {
+        for (let x = 0; x < canvas.width; x += blockSize) {
+            let sum = 0, count = 0;
 
-            let newPixel = gray < 128 ? 0 : 255;
-            let error = gray - newPixel;
-
-            for (let dy = 0; dy < step; dy++) {
-                for (let dx = 0; dx < step; dx++) {
-                    let ni = ((y + dy) * canvas.width + (x + dx)) * 4;
-                    if (ni >= data.length) continue;
-                    data[ni] = data[ni+1] = data[ni+2] = newPixel;
+            for (let dy = 0; dy < blockSize; dy++) {
+                for (let dx = 0; dx < blockSize; dx++) {
+                    let px = x + dx, py = y + dy;
+                    if (px >= canvas.width || py >= canvas.height) continue;
+                    let i = (py * canvas.width + px) * 4;
+                    let gray = (data[i] + data[i+1] + data[i+2]) / 3;
+                    sum += gray;
+                    count++;
                 }
             }
 
-            distributeError(x + 1, y,     error * 7 / 16, data, canvas.width, brightness, curve, blackPoint, whitePoint);
-            distributeError(x - 1, y + 1, error * 3 / 16, data, canvas.width, brightness, curve, blackPoint, whitePoint);
-            distributeError(x,     y + 1, error * 5 / 16, data, canvas.width, brightness, curve, blackPoint, whitePoint);
-            distributeError(x + 1, y + 1, error * 1 / 16, data, canvas.width, brightness, curve, blackPoint, whitePoint);
+            let avg = (sum / count) + brightness;
+            avg = Math.max(0, Math.min(255, avg));
+            avg = 255 * Math.pow(avg / 255, 1 / curve);
+            if (avg < blackPoint) avg = 0;
+            if (avg > whitePoint) avg = 255;
+
+            let newPixel = avg < 128 ? 0 : 255;
+            let error = avg - newPixel;
+
+            for (let dy = 0; dy < blockSize; dy++) {
+                for (let dx = 0; dx < blockSize; dx++) {
+                    let px = x + dx, py = y + dy;
+                    if (px >= canvas.width || py >= canvas.height) continue;
+                    let i = (py * canvas.width + px) * 4;
+                    data[i] = data[i+1] = data[i+2] = newPixel;
+                }
+            }
         }
     }
 
@@ -134,17 +138,8 @@ function applyBlur() {
             data[i] = data[i+1] = data[i+2] = avg;
         }
     }
-    ctx.putImageData(imageData, 0, 0);
-}
 
-function distributeError(x, y, error, data, width, brightness, curve, blackPoint, whitePoint) {
-    if (x < 0 || y < 0 || x >= width || y >= canvas.height) return;
-    let i = (y * width + x) * 4;
-    let gray = (data[i] + data[i+1] + data[i+2]) / 3;
-    gray = Math.max(0, Math.min(255, gray + error + brightness));
-    gray = 255 * Math.pow(gray / 255, 1 / curve);
-    gray = Math.max(blackPoint, Math.min(whitePoint, gray));
-    data[i] = data[i+1] = data[i+2] = gray;
+    ctx.putImageData(imageData, 0, 0);
 }
 
 function clamp(val) {
