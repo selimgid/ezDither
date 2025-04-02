@@ -48,11 +48,10 @@ function applyDither() {
     let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     let data = imageData.data;
     const brightness = parseInt(brightnessSlider.value);
-    const size = parseInt(sizeSlider.value);
     const curve = parseFloat(curveSlider.value);
 
-    for (let y = 0; y < canvas.height; y += size) {
-        for (let x = 0; x < canvas.width; x += size) {
+    for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
             let i = (y * canvas.width + x) * 4;
             let gray = (data[i] + data[i+1] + data[i+2]) / 3;
             gray = Math.max(0, Math.min(255, gray + brightness));
@@ -61,20 +60,26 @@ function applyDither() {
             let newPixel = gray < 128 ? 0 : 255;
             let error = gray - newPixel;
 
-            for (let dy = 0; dy < size; dy++) {
-                for (let dx = 0; dx < size; dx++) {
-                    let ni = ((y + dy) * canvas.width + (x + dx)) * 4;
-                    if (ni >= data.length) continue;
-                    data[ni] = data[ni+1] = data[ni+2] = newPixel;
-                }
-            }
+            data[i] = data[i+1] = data[i+2] = newPixel;
 
-            distributeError(x+1, y,     error * 7 / 16, data, canvas.width, brightness, curve);
-            distributeError(x-1, y+1,   error * 3 / 16, data, canvas.width, brightness, curve);
-            distributeError(x,   y+1,   error * 5 / 16, data, canvas.width, brightness, curve);
-            distributeError(x+1, y+1,   error * 1 / 16, data, canvas.width, brightness, curve);
+            distributeError(x + 1, y,     error * 7 / 16, data, canvas.width, brightness, curve);
+            distributeError(x - 1, y + 1, error * 3 / 16, data, canvas.width, brightness, curve);
+            distributeError(x,     y + 1, error * 5 / 16, data, canvas.width, brightness, curve);
+            distributeError(x + 1, y + 1, error * 1 / 16, data, canvas.width, brightness, curve);
         }
     }
+
+    // Add grain layer
+    for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+            let i = (y * canvas.width + x) * 4;
+            let noise = (Math.random() - 0.5) * 20;
+            data[i] = clamp(data[i] + noise);
+            data[i+1] = clamp(data[i+1] + noise);
+            data[i+2] = clamp(data[i+2] + noise);
+        }
+    }
+
     ctx.putImageData(imageData, 0, 0);
 }
 
@@ -85,4 +90,8 @@ function distributeError(x, y, error, data, width, brightness, curve) {
     gray = Math.max(0, Math.min(255, gray + error + brightness));
     gray = 255 * Math.pow(gray / 255, 1 / curve);
     data[i] = data[i+1] = data[i+2] = gray;
+}
+
+function clamp(val) {
+    return Math.max(0, Math.min(255, val));
 }
