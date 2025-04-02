@@ -2,21 +2,19 @@ const upload = document.getElementById('upload');
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-const sizeSlider = document.getElementById('sizeSlider');
-const brightnessSlider = document.getElementById('brightnessSlider');
-const curveSlider = document.getElementById('curveSlider');
-const blackSlider = document.getElementById('blackSlider');
-const whiteSlider = document.getElementById('whiteSlider');
-const noiseSlider = document.getElementById('noiseSlider');
-const blurSlider = document.getElementById('blurSlider');
-
-const sizeVal = document.getElementById('sizeVal');
-const brightVal = document.getElementById('brightVal');
-const curveVal = document.getElementById('curveVal');
-const blackVal = document.getElementById('blackVal');
-const whiteVal = document.getElementById('whiteVal');
-const noiseVal = document.getElementById('noiseVal');
-const blurVal = document.getElementById('blurVal');
+const sliders = {
+    size: document.getElementById('sizeSlider'),
+    brightness: document.getElementById('brightnessSlider'),
+    curve: document.getElementById('curveSlider'),
+    black: document.getElementById('blackSlider'),
+    white: document.getElementById('whiteSlider'),
+    noise: document.getElementById('noiseSlider'),
+    prenoise: document.getElementById('prenoiseSlider'),
+    blur: document.getElementById('blurSlider'),
+    low: document.getElementById('lowSlider'),
+    mid: document.getElementById('midSlider'),
+    high: document.getElementById('highSlider'),
+};
 
 const processBtn = document.getElementById('process');
 const downloadBtn = document.getElementById('download');
@@ -40,13 +38,6 @@ upload.addEventListener('change', (e) => {
 });
 
 processBtn.addEventListener('click', () => {
-    sizeVal.textContent = sizeSlider.value;
-    brightVal.textContent = brightnessSlider.value;
-    curveVal.textContent = curveSlider.value;
-    blackVal.textContent = blackSlider.value;
-    whiteVal.textContent = whiteSlider.value;
-    noiseVal.textContent = noiseSlider.value;
-    blurVal.textContent = blurSlider.value;
     applyDither();
 });
 
@@ -59,19 +50,62 @@ downloadBtn.addEventListener('click', () => {
 
 function applyDither() {
     if (!img.src) return;
+
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    if (blurSlider.value > 0) applyBlur();
+    if (+sliders.blur.value > 0) applyBlur();
 
     let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     let data = imageData.data;
 
-    const brightness = parseInt(brightnessSlider.value);
-    const curve = parseFloat(curveSlider.value);
-    const blackPoint = parseInt(blackSlider.value);
-    const whitePoint = parseInt(whiteSlider.value);
-    const noiseLevel = parseFloat(noiseSlider.value);
-    const blockSize = parseInt(sizeSlider.value);
+    const brightness = +sliders.brightness.value;
+    const curve = +sliders.curve.value;
+    const blackPoint = +sliders.black.value;
+    const whitePoint = +sliders.white.value;
+    const preNoise = +sliders.prenoise.value;
+    const postNoise = +sliders.noise.value;
+    const blockSize = +sliders.size.value;
 
+    const lowFactor = +sliders.low.value;
+    const midFactor = +sliders.mid.value;
+    const highFactor = +sliders.high.value;
+
+    // Preprocess: grayscale, blur, pre-noise
+    for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+            let i = (y * canvas.width + x) * 4;
+            let gray = (data[i] + data[i+1] + data[i+2]) / 3;
+
+            if (preNoise > 0) {
+                gray += (Math.random() - 0.5) * preNoise;
+            }
+
+            gray = Math.max(0, Math.min(255, gray));
+
+            // Tone curve blend
+            const norm = gray / 255;
+            let lowWeight  = 1 - norm;
+            let midWeight  = 1 - Math.abs(norm - 0.5) * 2;
+            let highWeight = norm;
+            let total = lowWeight + midWeight + highWeight;
+            lowWeight /= total;
+            midWeight /= total;
+            highWeight /= total;
+
+            gray *= (lowWeight * lowFactor + midWeight * midFactor + highWeight * highFactor);
+
+            // Global brightness & curve
+            gray = Math.max(0, Math.min(255, gray + brightness));
+            gray = 255 * Math.pow(gray / 255, 1 / curve);
+
+            // Crush blacks and whites
+            if (gray < blackPoint) gray = 0;
+            if (gray > whitePoint) gray = 255;
+
+            data[i] = data[i+1] = data[i+2] = gray;
+        }
+    }
+
+    // Dithering (Floyd–Steinberg on block-averaged image)
     for (let y = 0; y < canvas.height; y += blockSize) {
         for (let x = 0; x < canvas.width; x += blockSize) {
             let sum = 0, count = 0;
@@ -81,18 +115,12 @@ function applyDither() {
                     let px = x + dx, py = y + dy;
                     if (px >= canvas.width || py >= canvas.height) continue;
                     let i = (py * canvas.width + px) * 4;
-                    let gray = (data[i] + data[i+1] + data[i+2]) / 3;
-                    sum += gray;
+                    sum += data[i];
                     count++;
                 }
             }
 
-            let avg = (sum / count) + brightness;
-            avg = Math.max(0, Math.min(255, avg));
-            avg = 255 * Math.pow(avg / 255, 1 / curve);
-            if (avg < blackPoint) avg = 0;
-            if (avg > whitePoint) avg = 255;
-
+            let avg = sum / count;
             let newPixel = avg < 128 ? 0 : 255;
             let error = avg - newPixel;
 
@@ -107,13 +135,16 @@ function applyDither() {
         }
     }
 
-    for (let y = 0; y < canvas.height; y++) {
-        for (let x = 0; x < canvas.width; x++) {
-            let i = (y * canvas.width + x) * 4;
-            let noise = (Math.random() - 0.5) * noiseLevel;
-            data[i] = clamp(data[i] + noise);
-            data[i+1] = clamp(data[i+1] + noise);
-            data[i+2] = clamp(data[i+2] + noise);
+    // Add post noise
+    if (postNoise > 0) {
+        for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+                let i = (y * canvas.width + x) * 4;
+                let noise = (Math.random() - 0.5) * postNoise;
+                data[i] = clamp(data[i] + noise);
+                data[i+1] = clamp(data[i+1] + noise);
+                data[i+2] = clamp(data[i+2] + noise);
+            }
         }
     }
 

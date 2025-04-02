@@ -6,23 +6,75 @@
     <title>Dither Converter</title>
     <link rel="stylesheet" href="style.css">
     <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #1e1e1e;
+            color: white;
+            margin: 0;
+            font-family: sans-serif;
+        }
+
+        .main-area {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 2rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
         .slider-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 1rem;
             max-width: 800px;
-            margin: 0 auto;
+            margin-top: 1rem;
         }
+
         .slider-block {
             display: flex;
             flex-direction: column;
             align-items: center;
         }
+
+        .tone-sliders {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .tone-sliders input[type=range] {
+            writing-mode: bt-lr;
+            transform: rotate(270deg);
+            height: 150px;
+        }
+
+        .canvas-container {
+            border: 1px solid #444;
+            padding: 0.5rem;
+        }
+
+        canvas {
+            max-width: 90vw;
+            max-height: 70vh;
+        }
+
+        .button-row {
+            margin-top: 1rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        button {
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+        }
+
         label {
             margin-bottom: 0.25rem;
-        }
-        .button-row {
-            margin-top: 20px;
         }
     </style>
 </head>
@@ -31,34 +83,14 @@
     <input type="file" id="upload" accept="image/*"><br><br>
 
     <div class="slider-grid">
-        <div class="slider-block">
-            <label>Dither Size: <span id="sizeVal">1</span></label>
-            <input type="range" id="sizeSlider" min="1" max="100" value="1">
-        </div>
-        <div class="slider-block">
-            <label>Brightness: <span id="brightVal">0</span></label>
-            <input type="range" id="brightnessSlider" min="-100" max="100" value="0">
-        </div>
-        <div class="slider-block">
-            <label>Brightness Curve: <span id="curveVal">1</span></label>
-            <input type="range" id="curveSlider" min="0.5" max="2" step="0.1" value="1">
-        </div>
-        <div class="slider-block">
-            <label>Black Point: <span id="blackVal">0</span></label>
-            <input type="range" id="blackSlider" min="0" max="255" value="0">
-        </div>
-        <div class="slider-block">
-            <label>White Point: <span id="whiteVal">255</span></label>
-            <input type="range" id="whiteSlider" min="0" max="255" value="255">
-        </div>
-        <div class="slider-block">
-            <label>Noise Level: <span id="noiseVal">0</span></label>
-            <input type="range" id="noiseSlider" min="0" max="50" value="0">
-        </div>
-        <div class="slider-block">
-            <label>Blur Amount: <span id="blurVal">0</span></label>
-            <input type="range" id="blurSlider" min="0" max="5" step="1" value="0">
-        </div>
+        <div class="slider-block"><label>Dither Size: <span id="sizeVal">1</span></label><input type="range" id="sizeSlider" min="1" max="100" value="1"></div>
+        <div class="slider-block"><label>Brightness: <span id="brightVal">0</span></label><input type="range" id="brightnessSlider" min="-100" max="100" value="0"></div>
+        <div class="slider-block"><label>Brightness Curve: <span id="curveVal">1</span></label><input type="range" id="curveSlider" min="0.5" max="2" step="0.1" value="1"></div>
+        <div class="slider-block"><label>Black Point: <span id="blackVal">0</span></label><input type="range" id="blackSlider" min="0" max="255" value="0"></div>
+        <div class="slider-block"><label>White Point: <span id="whiteVal">255</span></label><input type="range" id="whiteSlider" min="0" max="255" value="255"></div>
+        <div class="slider-block"><label>Pre-Noise: <span id="prenoiseVal">0</span></label><input type="range" id="prenoiseSlider" min="0" max="50" value="0"></div>
+        <div class="slider-block"><label>Post-Noise: <span id="noiseVal">0</span></label><input type="range" id="noiseSlider" min="0" max="50" value="0"></div>
+        <div class="slider-block"><label>Blur Amount: <span id="blurVal">0</span></label><input type="range" id="blurSlider" min="0" max="5" step="1" value="0"></div>
     </div>
 
     <div class="button-row">
@@ -66,14 +98,23 @@
         <button id="download">Download Image</button>
     </div>
 
-    <div class="canvas-container">
-        <canvas id="canvas"></canvas>
+    <div class="main-area">
+        <div class="canvas-container">
+            <canvas id="canvas"></canvas>
+        </div>
+
+        <div class="tone-sliders">
+            <label>Low<br><span id="lowVal">1.0</span></label>
+            <input type="range" id="lowSlider" min="0.1" max="1.9" step="0.1" value="1.0">
+            <label>Mid<br><span id="midVal">1.0</span></label>
+            <input type="range" id="midSlider" min="0.1" max="1.9" step="0.1" value="1.0">
+            <label>High<br><span id="highVal">1.0</span></label>
+            <input type="range" id="highSlider" min="0.1" max="1.9" step="0.1" value="1.0">
+        </div>
     </div>
 
     <script>
-        const sliders = [
-            'size', 'brightness', 'curve', 'black', 'white', 'noise', 'blur'
-        ];
+        const sliders = ['size', 'brightness', 'curve', 'black', 'white', 'noise', 'blur', 'prenoise', 'low', 'mid', 'high'];
         sliders.forEach(id => {
             const slider = document.getElementById(id + 'Slider');
             const label = document.getElementById(id + 'Val');
