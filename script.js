@@ -75,10 +75,10 @@ function applyDither() {
     const blackPoint = parseInt(blackSlider.value);
     const whitePoint = parseInt(whiteSlider.value);
     const noiseLevel = parseFloat(noiseSlider.value);
-    const size = parseInt(sizeSlider.value);
+    const step = parseInt(sizeSlider.value);
 
-    for (let y = 0; y < canvas.height; y++) {
-        for (let x = 0; x < canvas.width; x++) {
+    for (let y = 0; y < canvas.height; y += step) {
+        for (let x = 0; x < canvas.width; x += step) {
             let i = (y * canvas.width + x) * 4;
             let gray = (data[i] + data[i+1] + data[i+2]) / 3;
             gray = Math.max(0, Math.min(255, gray + brightness));
@@ -88,12 +88,18 @@ function applyDither() {
             let newPixel = gray < 128 ? 0 : 255;
             let error = gray - newPixel;
 
-            data[i] = data[i+1] = data[i+2] = newPixel;
+            for (let dy = 0; dy < step; dy++) {
+                for (let dx = 0; dx < step; dx++) {
+                    let ni = ((y + dy) * canvas.width + (x + dx)) * 4;
+                    if (ni >= data.length) continue;
+                    data[ni] = data[ni+1] = data[ni+2] = newPixel;
+                }
+            }
 
-            distributeError(x+1, y,     error * 7 / 16, data, canvas.width, brightness, curve, blackPoint, whitePoint);
-            distributeError(x-1, y+1,   error * 3 / 16, data, canvas.width, brightness, curve, blackPoint, whitePoint);
-            distributeError(x,   y+1,   error * 5 / 16, data, canvas.width, brightness, curve, blackPoint, whitePoint);
-            distributeError(x+1, y+1,   error * 1 / 16, data, canvas.width, brightness, curve, blackPoint, whitePoint);
+            distributeError(x + 1, y,     error * 7 / 16, data, canvas.width, brightness, curve, blackPoint, whitePoint);
+            distributeError(x - 1, y + 1, error * 3 / 16, data, canvas.width, brightness, curve, blackPoint, whitePoint);
+            distributeError(x,     y + 1, error * 5 / 16, data, canvas.width, brightness, curve, blackPoint, whitePoint);
+            distributeError(x + 1, y + 1, error * 1 / 16, data, canvas.width, brightness, curve, blackPoint, whitePoint);
         }
     }
 
@@ -113,7 +119,6 @@ function applyDither() {
 function applyBlur() {
     let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     let data = imageData.data;
-    let radius = parseInt(blurSlider.value);
 
     for (let y = 1; y < canvas.height - 1; y++) {
         for (let x = 1; x < canvas.width - 1; x++) {
