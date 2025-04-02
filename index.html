@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dither Converter</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>B/W Dithered Image Converter</h1>
+    <input type="file" id="upload" accept="image/*"><br>
+    
+    <div class="controls">
+        <label>Dither Size: <span id="sizeVal">1</span></label>
+        <input type="range" id="sizeSlider" min="1" max="10" value="1">
+        <label>Brightness: <span id="brightVal">0</span></label>
+        <input type="range" id="brightnessSlider" min="-100" max="100" value="0">
+    </div>
+    
+    <canvas id="canvas"></canvas><br>
+    <button id="download">Download Image</button>
+
+    <script src="script.js"></script>
+</body>
+</html>

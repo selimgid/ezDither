@@ -1,0 +1,22 @@
+body {
+    font-family: sans-serif;
+    text-align: center;
+    background: #1e1e1e;
+    color: white;
+}
+.controls {
+    margin: 20px 0;
+}
+input[type="range"] {
+    width: 200px;
+}
+canvas {
+    border: 1px solid #444;
+    margin-top: 20px;
+    max-width: 95vw;
+}
+button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 16px;
+}
